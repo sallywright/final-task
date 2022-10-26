@@ -1,3 +1,4 @@
+from django.forms import ValidationError
 from django.shortcuts import redirect, render
 from django.http import Http404
 from utils import models
@@ -13,6 +14,8 @@ def create_note_view(request):
     if request.method == "GET":
         if request.user.is_authenticated:
             context = {**context, "user_authenticated": True}
+            categories = models.Category.objects.all()
+            context = {**context, "categories": categories}
             return render(request, "notes/create.html", context)
         else:
             return render(request, "login/index.html", context)
@@ -20,7 +23,9 @@ def create_note_view(request):
         title = request.POST.get("title", None)
         text = request.POST.get("text", None)
         created_at = datetime.now()
-        category = request.POST.get("category", None)
+        category_id = request.POST.get("category", None)
+        if category_id:
+            category = models.Category.objects.get(id=category_id)
         user = request.user
 
         if title and text and created_at and user:
@@ -34,7 +39,7 @@ def create_note_view(request):
                 )
                 note.full_clean()
                 note.save()
-                return redirect("note:view", note_id=note.id)
+                return redirect("note:list")
             except Exception as e:
                 raise Http404(e)
         else:
@@ -83,12 +88,68 @@ def get_note_view(request, note_id):
                 )
             except models.Note.DoesNotExist:
                 raise Http404("Note does not exist")
+            categories = models.Category.objects.all()
             context = {
                 **context,
                 "user_authenticated": True,
                 "note": notes,
+                "categories": categories,
             }
 
             return render(request, "notes/view.html", context)
+        else:
+            return render(request, "login/index.html", context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def edit_note_view(request, note_id):
+    context = {"user_authenticated": False}
+    if request.method == "POST":
+        if request.user.is_authenticated:
+            try:
+                note = (
+                    models.Note.objects.filter(user=request.user)
+                    .filter(id=note_id)
+                    .first()
+                )
+            except models.Note.DoesNotExist:
+                raise Http404("Note does not exist")
+
+            note.title = request.POST.get("title", note.title)
+            note.text = request.POST.get("text", note.text)
+            category_id = request.POST.get("category", None)
+
+            if category_id != None and category_id != "None" and category_id != "":
+                note.category = models.Category.objects.get(id=category_id)
+            try:
+                note.full_clean()
+                note.save()
+            except ValidationError as e:
+                raise Http404(e)
+
+            return redirect("note:list")
+        else:
+            return render(request, "login/index.html", context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def delete_note_view(request, note_id):
+    context = {"user_authenticated": False}
+    if request.method == "POST":
+        if request.user.is_authenticated:
+            try:
+                note = (
+                    models.Note.objects.filter(user=request.user)
+                    .filter(id=note_id)
+                    .first()
+                )
+            except models.Note.DoesNotExist:
+                raise Http404("Note does not exist")
+
+            note.delete()
+
+            return redirect("note:list")
         else:
             return render(request, "login/index.html", context)

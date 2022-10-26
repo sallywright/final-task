@@ -1,4 +1,5 @@
 from unicodedata import category
+from django.forms import ValidationError
 from django.shortcuts import redirect, render
 from django.http import Http404
 from utils import models
@@ -14,7 +15,7 @@ def create_category_view(request):
     if request.method == "GET":
         if request.user.is_authenticated:
             context = {**context, "user_authenticated": True}
-            return render(request, "notes/create.html", context)
+            return render(request, "categories/create.html", context)
         else:
             return render(request, "login/index.html", context)
     if request.method == "POST":
@@ -43,47 +44,87 @@ def list_categories_view(request):
     if request.method == "GET":
         if request.user.is_authenticated:
             context = {**context, "user_authenticated": True}
-    notes = models.Note.objects.filter(user=request.user)
-    all_notes = []
-    for note in notes:
-        all_notes.append(
+    categories = models.Category.objects.all()
+    all_categories = []
+    for category in categories:
+        all_categories.append(
             {
-                "id": note.id,
-                "title": note.title,
-                "text": note.text,
-                "created_at": note.created_at,
-                "category": note.category,
+                "id": category.id,
+                "title": category.title,
+                "notes": category.notes.filter(user=request.user),
             }
         )
 
-    context = {**context, "notes": notes}
+    context = {**context, "categories": all_categories}
     if request.user.is_authenticated:
         context = {**context, "user_authenticated": True}
-        return render(request, "notes/index.html", context)
+        return render(request, "categories/index.html", context)
     else:
         return render(request, "login/index.html", context)
 
 
 @login_required
 @require_http_methods(["GET", "POST"])
-def get_category_view(request, note_id):
+def get_category_view(request, category_id):
     context = {"user_authenticated": False}
     if request.method == "GET":
         if request.user.is_authenticated:
             try:
-                notes = (
-                    models.Note.objects.filter(user=request.user)
-                    .filter(id=note_id)
-                    .first()
-                )
-            except models.Note.DoesNotExist:
-                raise Http404("Note does not exist")
+                category = models.Category.objects.filter(id=category_id).first()
+            except models.Category.DoesNotExist:
+                raise Http404("Category does not exist")
             context = {
                 **context,
                 "user_authenticated": True,
-                "note": notes,
+                "category": category,
             }
 
-            return render(request, "notes/view.html", context)
+            return render(request, "categories/view.html", context)
+        else:
+            return render(request, "login/index.html", context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def edit_category_view(request, category_id):
+    context = {"user_authenticated": False}
+    if request.method == "POST":
+        if request.user.is_authenticated:
+            try:
+                category = (
+                    models.Category.objects.filter(user=request.user)
+                    .filter(id=category_id)
+                    .first()
+                )
+            except models.Category.DoesNotExist:
+                raise Http404("Category does not exist")
+
+            category.title = request.POST.get("title", category.title)
+
+            try:
+                category.full_clean()
+                category.save()
+            except ValidationError as e:
+                raise Http404(e)
+
+            return redirect("category:list")
+        else:
+            return render(request, "login/index.html", context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def delete_category_view(request, category_id):
+    context = {"user_authenticated": False}
+    if request.method == "POST":
+        if request.user.is_authenticated:
+            try:
+                category = models.Category.objects.filter(id=category_id).first()
+            except models.Category.DoesNotExist:
+                raise Http404("Category does not exist")
+
+            category.delete()
+
+            return redirect("category:list")
         else:
             return render(request, "login/index.html", context)
