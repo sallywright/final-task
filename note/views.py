@@ -27,6 +27,7 @@ def create_note_view(request):
         if category_id:
             category = models.Category.objects.get(id=category_id)
         user = request.user
+        picture_url = request.POST.get("image_url", None)
 
         if title and text and created_at and user:
             try:
@@ -35,6 +36,7 @@ def create_note_view(request):
                     text=text,
                     created_at=created_at,
                     category=category,
+                    picture_url=picture_url,
                     user=user,
                 )
                 note.full_clean()
@@ -53,7 +55,14 @@ def list_notes_view(request):
     if request.method == "GET":
         if request.user.is_authenticated:
             context = {**context, "user_authenticated": True}
-    notes = models.Note.objects.filter(user=request.user)
+
+    if request.GET.get("search", None):
+        search_string = request.GET.get("search")
+        notes = models.Note.objects.filter(user=request.user).filter(
+            title__icontains=search_string
+        )
+    else:
+        notes = models.Note.objects.filter(user=request.user)
     all_notes = []
     for note in notes:
         all_notes.append(
@@ -63,6 +72,7 @@ def list_notes_view(request):
                 "text": note.text,
                 "created_at": note.created_at,
                 "category": note.category,
+                "image_url": note.picture_url,
             }
         )
 
@@ -119,6 +129,7 @@ def edit_note_view(request, note_id):
             note.title = request.POST.get("title", note.title)
             note.text = request.POST.get("text", note.text)
             category_id = request.POST.get("category", None)
+            note.picture_url = request.POST.get("image_url", None)
 
             if category_id != None and category_id != "None" and category_id != "":
                 note.category = models.Category.objects.get(id=category_id)
