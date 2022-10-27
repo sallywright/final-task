@@ -1,6 +1,6 @@
 ## Get started.
 
-1. Create .env file in the /recipes directory and insert database connection parameters. (Use the .env.example for guidance)
+1. Create .env file in the /core directory and insert database connection parameters. (Use the .env.example for guidance)
 2. Create venv with the `python3 -m venv venv` command.
 3. Activate virtual envionment with the `source venv/bin/activate` command.
 4. Install the necessary packages with the following command: `pip install -r requirements.txt`
