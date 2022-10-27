@@ -131,8 +131,11 @@ def edit_note_view(request, note_id):
             category_id = request.POST.get("category", None)
             note.picture_url = request.POST.get("image_url", None)
 
-            if category_id != None and category_id != "None" and category_id != "":
+            if category_id != None and category_id != "None" and category_id != "" and category_id != "selected":
                 note.category = models.Category.objects.get(id=category_id)
+            else:
+                note.category = None
+            
             try:
                 note.full_clean()
                 note.save()
